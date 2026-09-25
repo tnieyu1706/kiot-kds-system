@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KDS Server - Quản lý đơn</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; min-height: 100vh; display: flex; flex-direction: column; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 12px; width: 100%; flex: 1; }
+  h1 { margin: 8px 0; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: #fff; border-radius: 10px; padding: 10px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .stat b { display: block; font-size: 26px; }
+  .stat span { color: #6b7280; font-size: 13px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; background: #fff; border-radius: 10px; padding: 10px; margin-bottom: 12px; align-items: center; }
+  button { padding: 8px 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; font-weight: 600; }
+  button.danger { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  button.ok { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  button.info { background: #2563eb; border-color: #1d4ed8; color: #fff; }  button:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: default; }
+  table { width: 100%; background: #fff; border-radius: 10px; overflow: hidden; border-collapse: collapse; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; vertical-align: top; }
+  thead th { background: #f9fafb; }
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:hover { background: #eef2ff; }
+  tr.filters th { background: #fff; padding: 4px 6px; }
+  tr.filters input, tr.filters select { width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+  ul.items { margin: 0; padding-left: 18px; }
+  ul.items li { margin: 2px 0; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .pill.pending { background: #fef08a; }
+  .pill.completed { background: #bbf7d0; }
+  .conn { font-size: 13px; }
+  .conn.on { color: #16a34a; }
+  .conn.off { color: #dc2626; }
+  .muted { color: #6b7280; font-size: 13px; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin: 10px 0; flex-wrap: wrap; }
+  .pager input { width: 64px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+  footer { border-top: 1px solid #e5e7eb; background: #fff; text-align: center; padding: 10px; font-size: 13px; color: #6b7280; }
+  footer a { color: #2563eb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍳 KDS Server - Quản lý đơn <span id="conn" class="conn off">○ offline</span></h1>
+
+  <div class="stats">
+    <div class="stat"><b id="st-total">0</b><span>Tổng đơn</span></div>
+    <div class="stat"><b id="st-pending">0</b><span>Đang chờ</span></div>
+    <div class="stat"><b id="st-completed">0</b><span>Đã xong</span></div>
+    <div class="stat"><b id="st-sockets">0</b><span>Client realtime</span></div>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="load()">↻ Tải lại</button>
+    <button class="danger" onclick="clearCompleted()">Xóa đã xong</button>
+    <button class="danger" onclick="clearAll()">Xóa tất cả</button>
+    <span class="muted">Bấm tiêu đề cột để sắp xếp · 10 đơn/trang</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable" onclick="toggleSort('sequenceNumber')">Seq <span id="s-sequenceNumber"></span></th>
+        <th class="sortable" onclick="toggleSort('orderCode')">Mã đơn <span id="s-orderCode"></span></th>
+        <th class="sortable" onclick="toggleSort('status')">Trạng thái <span id="s-status"></span></th>
+        <th class="sortable" onclick="toggleSort('totalQuantity')">Tổng SL <span id="s-totalQuantity"></span></th>
+        <th class="sortable" onclick="toggleSort('receivedAt')">Giờ nhận <span id="s-receivedAt"></span></th>
+        <th class="sortable" onclick="toggleSort('completedAt')">Giờ xong <span id="s-completedAt"></span></th>
+        <th>Món</th>
+        <th>Hành động</th>
+      </tr>
+      <tr class="filters">
+        <th><input id="f-seq" placeholder="Lọc" oninput="page=1;render()" /></th>
+        <th><input id="f-code" placeholder="Lọc mã" oninput="page=1;render()" /></th>
+        <th>
+          <select id="f-status" onchange="page=1;render()">
+            <option value="all">Tất cả</option>
+            <option value="pending">Đang chờ</option>
+            <option value="completed">Đã xong</option>
+          </select>
+        </th>
+        <th><input id="f-qty" placeholder="Lọc" oninput="page=1;render()" /></th>
+        <th><input id="f-rx" placeholder="Lọc giờ" oninput="page=1;render()" /></th>
+        <th><input id="f-done" placeholder="Lọc giờ" oninput="page=1;render()" /></th>
+        <th><input id="f-items" placeholder="Lọc món" oninput="page=1;render()" /></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="pager">
+    <button id="btn-prev" onclick="gotoPage(page-1)">‹ Trước</button>
+    <span id="page-info" class="muted"></span>
+    <button id="btn-next" onclick="gotoPage(page+1)">Sau ›</button>
+    <input id="jump" type="number" min="1" placeholder="Trang" />
+    <button onclick="gotoPage(parseInt(document.getElementById('jump').value, 10))">Đi</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/api/orders">/api/orders</a> · <a href="/api/stats">/api/stats</a> · <a href="/health">/health</a> · Dữ liệu lưu RAM, mất khi restart server.
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+let orders = [];
+let page = 1;
+const PAGE_SIZE = 10;
+let sortKey = "sequenceNumber";
+let sortDir = -1; // mặc định đơn mới nhất lên trước
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+function fmtDT(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    return hh + ":" + mm + " " + dd + "/" + mo;
+  } catch { return "—"; }
+}
+
+async function load() {
+  const r = await fetch("/api/orders");
+  orders = await r.json();
+  render();
+  refreshStats();
+}
+
+async function refreshStats() {
+  try {
+    const r = await fetch("/api/stats");
+    const s = await r.json();
+    document.getElementById("st-total").textContent = s.total;
+    document.getElementById("st-pending").textContent = s.pending;
+    document.getElementById("st-completed").textContent = s.completed;
+    document.getElementById("st-sockets").textContent = s.sockets;
+  } catch {}
+}
+
+function toggleSort(key) {
+  if (sortKey === key) sortDir = -sortDir;
+  else { sortKey = key; sortDir = 1; }
+  render();
+}
+
+function cmpVal(o, key) {
+  const v = o[key];
+  if (key === "completedAt" || key === "receivedAt") return v ? new Date(v).getTime() : -1;
+  if (key === "sequenceNumber" || key === "totalQuantity") return Number(v) || 0;
+  return String(v == null ? "" : v).toLowerCase();
+}
+
+function getFiltered() {
+  const fSeq = document.getElementById("f-seq").value.trim().toLowerCase();
+  const fCode = document.getElementById("f-code").value.trim().toLowerCase();
+  const fStatus = document.getElementById("f-status").value;
+  const fQty = document.getElementById("f-qty").value.trim();
+  const fRx = document.getElementById("f-rx").value.trim();
+  const fDone = document.getElementById("f-done").value.trim();
+  const fItems = document.getElementById("f-items").value.trim().toLowerCase();
+  const out = orders.filter((o) => {
+    if (fStatus !== "all" && o.status !== fStatus) return false;
+    if (fSeq && !String(o.sequenceNumber).includes(fSeq)) return false;
+    if (fCode && !(o.orderCode || "").toLowerCase().includes(fCode)) return false;
+    if (fQty && !String(o.totalQuantity).includes(fQty)) return false;
+    if (fRx && !fmtDT(o.receivedAt).includes(fRx)) return false;
+    if (fDone && !fmtDT(o.completedAt).includes(fDone)) return false;
+    if (fItems && !(o.items || []).some((it) => (it.name || "").toLowerCase().includes(fItems))) return false;
+    return true;
+  });
+  out.sort((a, b) => {
+    const va = cmpVal(a, sortKey), vb = cmpVal(b, sortKey);
+    if (va < vb) return -sortDir;
+    if (va > vb) return sortDir;
+    return 0;
+  });
+  return out;
+}
+
+function render() {
+  ["sequenceNumber", "orderCode", "status", "totalQuantity", "receivedAt", "completedAt"].forEach((k) => {
+    document.getElementById("s-" + k).textContent = sortKey === k ? (sortDir === 1 ? "▲" : "▼") : "";
+  });
+  const list = getFiltered();
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  if (page > totalPages) page = totalPages;
+  if (page < 1) page = 1;
+  const slice = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  document.getElementById("rows").innerHTML = slice.length ? slice.map((o) => (
+    "<tr>" +
+    "<td><b>" + String(o.sequenceNumber).padStart(3, "0") + "</b></td>" +
+    "<td><b>" + esc(o.orderCode) + "</b></td>" +
+    "<td><span class='pill " + o.status + "'>" + (o.status === "completed" ? "Đã xong" : "Đang chờ") + "</span></td>" +
+    "<td>" + o.totalQuantity + "</td>" +
+    "<td>" + esc(fmtDT(o.receivedAt)) + "</td>" +
+    "<td>" + esc(fmtDT(o.completedAt)) + "</td>" +
+    "<td><ul class='items'>" + (o.items || []).map((it) => "<li>" + esc(it.name) + " - " + it.quantity + "</li>").join("") + "</ul></td>" +
+    "<td>" +
+      (o.status !== "completed"
+        ? "<button class='ok' onclick=\"completeOrder('" + o.id + "')\">Hoàn thành</button> "
+        : "<button class='info' onclick=\"reopenOrder('" + o.id + "')\">Hoàn tác</button> ") +
+      "<button class='danger' onclick=\"deleteOrder('" + o.id + "','" + esc(o.orderCode) + "')\">Xóa</button>" +
+    "</td>" +
+    "</tr>"
+  )).join("") : "<tr><td colspan='8' class='muted'>Không có đơn nào khớp.</td></tr>";
+  document.getElementById("page-info").textContent = "Trang " + page + " / " + totalPages + " (" + list.length + " đơn)";
+  document.getElementById("btn-prev").disabled = page <= 1;
+  document.getElementById("btn-next").disabled = page >= totalPages;
+}
+
+function gotoPage(p) {
+  if (!Number.isInteger(p)) return;
+  page = p;
+  render();
+}
+
+async function completeOrder(id) {
+  await fetch("/api/orders/" + id + "/complete", { method: "PATCH" });
+}
+
+async function reopenOrder(id) {
+  await fetch("/api/orders/" + id + "/reopen", { method: "PATCH" });
+}
+
+async function deleteOrder(id, code) {
+  if (!confirm("Xóa đơn " + code + "?")) return;
+  await fetch("/api/orders/" + id, { method: "DELETE" });
+}
+
+async function clearCompleted() {
+  if (!confirm("Xóa tất cả đơn ĐÃ XONG?")) return;
+  await fetch("/api/orders?status=completed", { method: "DELETE" });
+}
+
+async function clearAll() {
+  if (!confirm("Xóa TẤT CẢ đơn?")) return;
+  if (!confirm("Chắc chắn? Dữ liệu RAM sẽ mất hết!")) return;
+  await fetch("/api/orders?all=1", { method: "DELETE" });
+}
+
+const socket = io();
+socket.on("connect", () => {
+  const c = document.getElementById("conn");
+  c.textContent = "● realtime";
+  c.className = "conn on";
+});
+socket.on("disconnect", () => {
+  const c = document.getElementById("conn");
+  c.textContent = "○ offline";
+  c.className = "conn off";
+});
+socket.on("order:new", (o) => {
+  if (!orders.some((x) => x.id === o.id)) orders.push(o);
+  render(); refreshStats();
+});
+socket.on("order:completed", ({ id }) => {
+  orders = orders.map((o) => (o.id === id ? { ...o, status: "completed", completedAt: o.completedAt || new Date().toISOString() } : o));
+  render(); refreshStats();
+});
+socket.on("order:reopened", ({ id }) => {
+  orders = orders.map((o) => (o.id === id ? { ...o, status: "pending", completedAt: null } : o));
+  render(); refreshStats();
+});
+socket.on("order:deleted", ({ id }) => {
+  orders = orders.filter((o) => o.id !== id);
+  render(); refreshStats();
+});
+
+load();
+setInterval(refreshStats, 10000);
+</script>
+</body>
+</html>

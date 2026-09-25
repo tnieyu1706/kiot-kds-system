@@ -1,0 +1,86 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
+
+.kds-page { padding: 12px; max-width: 1400px; margin: 0 auto; }
+.kds-topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.kds-logo { font-size: 20px; }
+.kds-topbtn { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.kds-spacer { flex: 1; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto; }
+.modal { background: #f3f4f6; border-radius: 12px; padding: 12px; width: 100%; max-width: 560px; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
+.modal .kds-settings { margin-bottom: 10px; }
+.qr-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.qr-box { background: #fff; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+.badge-online { color: #16a34a; font-size: 14px; }
+.badge-offline { color: #dc2626; font-size: 14px; }
+.kds-empty { color: #6b7280; }
+
+.kds-settings { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; margin: 10px 0 12px; }
+.kds-settings-label { font-size: 14px; font-weight: 600; }
+.kds-settings-input { flex: 1; min-width: 180px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+.kds-settings-clear { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px; cursor: pointer; }
+.kds-settings-hint { font-size: 13px; color: #6b7280; }
+.kds-chips { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.kds-chip { display: inline-flex; align-items: center; gap: 6px; background: #dbeafe; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px; font-weight: 600; }
+.kds-chip-x { border: none; background: #fff; border-radius: 999px; width: 20px; height: 20px; cursor: pointer; line-height: 1; }
+.kds-stats { display: flex; flex-direction: column; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+
+/* Grid cố định theo cỡ card (chọn trong Thiết lập).
+   Mỗi card có rộng tối thiểu — hết chỗ thì cuộn ngang, không bóp méo. */
+.kds-grid {
+  display: grid;
+  gap: 10px;
+}
+.kds-grid-small { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+.kds-grid-medium { grid-template-columns: repeat(2, minmax(230px, 1fr)); }
+.kds-grid-large { grid-template-columns: repeat(1, minmax(280px, 1fr)); }
+.grid-wrap { width: 100%; }
+.kds-grid > * { min-width: 0; }
+
+.kds-card { background: #fff; border-radius: 10px; padding: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.kds-card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 6px; row-gap: 4px; }
+.kds-card-left, .kds-card-right { display: flex; align-items: center; gap: 6px; }
+.kds-card-left { min-width: 0; flex: 1 1 auto; }
+.kds-card-right { flex: 0 0 auto; }
+
+/* Thông tin phụ: nhỏ gọn */
+.pin-btn { border: none; background: transparent; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
+.seq { background: #fbcfe8; padding: 2px 6px; border-radius: 6px; font-weight: 700; font-size: 12px; }
+.time { font-weight: 600; font-size: 12px; color: #6b7280; }
+.qty { background: #3b82f6; color: #fff; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 12px; }
+
+/* Thông tin chính: mã đơn + món nổi bật, rõ ràng.
+   Mã tối đa dạng AAA-XXXX nên giữ 1 dòng (nowrap) + padding gọn. */
+.code { background: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 18px; min-width: 0; white-space: nowrap; }
+
+.kds-items { display: flex; flex-direction: column; gap: 5px; }
+.kds-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 10px; font-size: 15px; font-weight: 600; }
+
+.kds-card-bottom { display: flex; justify-content: flex-end; margin-top: 8px; }
+.btn-complete { background: #22c55e; color: #fff; border: none; border-radius: 8px; padding: 5px 12px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.btn-complete:active { transform: scale(.97); }
+
+/* Cỡ nhỏ: thu gọn kể cả thành phần bên trong (mã/món vẫn rõ) */
+.kds-grid-small { gap: 8px; }
+.kds-grid-small .kds-card { padding: 6px; font-size: 12px; border-radius: 8px; }
+.kds-grid-small .seq, .kds-grid-small .qty { padding: 2px 6px; }
+.kds-grid-small .code { font-size: 15px; padding: 3px 8px; }
+.kds-grid-small .kds-item { padding: 4px 6px; border-radius: 6px; font-size: 13px; }
+.kds-grid-small .btn-complete { padding: 5px 10px; font-size: 12px; }
+.kds-grid-small .kds-card-top { margin-bottom: 4px; }
+.kds-grid-small .kds-card-bottom { margin-top: 6px; }
+
+/* Cỡ lớn: thoáng hơn */
+.kds-grid-large .kds-card { padding: 12px; font-size: 16px; }
+.kds-grid-large .code { font-size: 20px; }
+.kds-grid-large .kds-item { padding: 8px 12px; font-size: 17px; }
+.kds-grid-large .btn-complete { padding: 8px 18px; font-size: 15px; }
+
+.btn-next { background: #f59e0b; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+.btn-next:active { transform: scale(.97); }
+.pin-btn { border: none; background: transparent; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
+.pin-off { opacity: .3; filter: grayscale(1); }
+.pin-on { opacity: 1; }
+.kds-next-input { width: 60px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+.kds-card-next { border: 3px solid #f59e0b; box-shadow: 0 0 12px rgba(245,158,11,.55); }

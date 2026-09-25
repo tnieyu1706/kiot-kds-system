@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "KiotViet FNB Payment Hook (Test)",
+  "version": "1.1.0",
+  "description": "Hook nut Thanh toan tren fnb.kiotviet.vn va gui don len KDS Server (POST /api/orders).",
+  "permissions": ["storage"],
+  "host_permissions": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://fnb.kiotviet.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "KiotViet Hook Test"
+  }
+}
