@@ -2,9 +2,11 @@
 body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 
 .kds-page { padding: 12px; max-width: 1400px; margin: 0 auto; }
-.kds-topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-.kds-logo { font-size: 20px; }
-.kds-topbtn { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.kds-topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 10px; padding: 6px 8px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12); flex-wrap: nowrap; }
+.kds-logo { font-size: 16px; line-height: 1; flex: 0 0 auto; }
+.kds-topbtn { padding: 0 8px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; line-height: 1; white-space: nowrap; flex: 0 0 auto; min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+.kds-topbar .kds-settings-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; min-width: 0; }
+.badge-online, .badge-offline { flex: 0 0 auto; }
 .kds-spacer { flex: 1; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto; }
 .modal { background: #f3f4f6; border-radius: 12px; padding: 12px; width: 100%; max-width: 560px; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
@@ -89,7 +91,7 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 .kds-grid-large .kds-item { padding: 8px 12px; font-size: 17px; }
 .kds-grid-large .btn-complete { padding: 8px 18px; font-size: 15px; }
 
-.btn-next { background: #f59e0b; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+.btn-next { background: #f59e0b; color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; flex: 0 0 auto; min-height: 32px; }
 .btn-next:active { transform: scale(.97); }
 
 /* Toast báo đơn mới: cố định trên cùng, tự mất sau 5s */

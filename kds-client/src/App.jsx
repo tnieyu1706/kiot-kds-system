@@ -714,7 +714,7 @@ export default function App() {
         <span className="kds-spacer" />
         <span className="kds-settings-hint">Tổng {visible.length} đơn</span>
         <button className="kds-topbtn" onClick={() => setSettingsOpen(true)} title="Thiết lập">
-          ⚙️ Thiết lập
+          ⚙️
         </button>
       </header>
 
@@ -733,10 +733,12 @@ export default function App() {
               <input
                 className="kds-next-input"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={10}
                 value={nextCount}
                 onChange={(e) => changeNextCount(parseInt(e.target.value, 10))}
+                onFocus={(e) => { try { e.target.select(); } catch {} }}
               />
               <span className="kds-settings-hint">(1-10)</span>
             </section>
@@ -787,10 +789,12 @@ export default function App() {
                 <input
                   className="kds-next-input"
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   max={8}
                   value={customCols}
                   onChange={(e) => changeCustomCols(parseInt(e.target.value, 10))}
+                  onFocus={(e) => { try { e.target.select(); } catch {} }}
                   title="Số card mỗi hàng (1-8)"
                 />
               )}
