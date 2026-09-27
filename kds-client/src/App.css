@@ -41,22 +41,23 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 .kds-stat-cell { text-align: left; }
 
 /* Grid cố định theo cỡ card (chọn trong Thiết lập).
-   Mỗi card có rộng tối thiểu — hết chỗ thì cuộn ngang, không bóp méo. */
+   Dùng minmax(0,1fr) để các cột luôn co vừa màn hình (kể cả điện thoại),
+   nội dung bên trong tự xuống dòng / thu chữ thay vì tràn ra ngoài. */
 .kds-grid {
   display: grid;
   gap: 10px;
 }
-.kds-grid-small { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
-.kds-grid-medium { grid-template-columns: repeat(2, minmax(230px, 1fr)); }
-.kds-grid-large { grid-template-columns: repeat(1, minmax(280px, 1fr)); }
-.grid-wrap { width: 100%; }
+.kds-grid-small { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kds-grid-medium { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kds-grid-large { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-wrap { width: 100%; overflow-x: auto; }
 .kds-grid > * { min-width: 0; }
 
 .kds-card { background: #fff; border-radius: 10px; padding: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
 .kds-card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 6px; row-gap: 4px; }
 .kds-card-left, .kds-card-right { display: flex; align-items: center; gap: 6px; }
 .kds-card-left { min-width: 0; flex: 1 1 auto; }
-.kds-card-right { flex: 0 0 auto; }
+.kds-card-right { flex: 0 0 auto; margin-left: auto; }
 
 /* Thông tin phụ: nhỏ gọn */
 .pin-btn { border: none; background: transparent; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
@@ -66,7 +67,9 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 
 /* Thông tin chính: mã đơn + món nổi bật, rõ ràng.
    Mã tối đa dạng AAA-XXXX nên giữ 1 dòng (nowrap) + padding gọn. */
-.code { background: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 18px; min-width: 0; white-space: nowrap; }
+.code { background: #fef08a; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 18px; min-width: 0; white-space: nowrap; flex: 0 1 auto; }
+.seq { flex: 0 0 auto; }
+.code-short { display: none; }
 
 .kds-items { display: flex; flex-direction: column; gap: 5px; }
 .kds-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 10px; font-size: 15px; font-weight: 600; }
@@ -103,3 +106,29 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 .pin-on { opacity: 1; }
 .kds-next-input { width: 60px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
 .kds-card-next { border: 3px solid #f59e0b; box-shadow: 0 0 12px rgba(245,158,11,.55); }
+
+/* Điện thoại (<=640px): lưới đã co vừa nhờ minmax(0,1fr) ở trên,
+   ở đây chỉ thu gọn chữ + padding trong card để 2-3 cột vẫn đọc được.
+   Không dùng transform:scale vì sẽ làm chữ bé li ti + nút bấm khó + lệch chiều cao. */
+@media (max-width: 640px) {
+  .kds-page { padding: 8px; }
+  .kds-grid { gap: 6px; }
+  .kds-grid-small { gap: 6px; }
+  .kds-card { padding: 6px; font-size: 12px; }
+  .kds-card-top { gap: 4px; row-gap: 4px; }
+  .kds-card-left, .kds-card-right { gap: 4px; }
+  .code { font-size: 14px; padding: 3px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .seq, .qty { font-size: 11px; padding: 2px 6px; }
+  .time { font-size: 11px; }
+  .kds-items { gap: 4px; }
+  .kds-item { padding: 5px 7px; font-size: 13px; }
+  .btn-complete { padding: 5px 10px; font-size: 12px; }
+  /* 3 cột trên màn hẹp: chữ món nhỏ thêm một nấc cho vừa */
+  .kds-grid-small .code { font-size: 12px; padding: 2px 5px; }
+  .kds-grid-small .kds-item { font-size: 12px; padding: 4px 5px; }
+  .kds-grid-small .seq, .kds-grid-small .qty, .kds-grid-small .time { font-size: 10px; }
+  /* Riêng 3 cột trên mobile: mã AAA-XXXX chỉ hiện XXXX cho gọn,
+     số thứ tự không bị ép vì mã đã ngắn lại. */
+  .kds-grid-small .code-full { display: none; }
+  .kds-grid-small .code-short { display: inline; }
+}

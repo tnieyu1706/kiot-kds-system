@@ -30,6 +30,14 @@ function fmtTime(iso) {
   }
 }
 
+// 3 cột trên mobile chật → chỉ hiện đuôi XXXX của "AAA-XXXX" cho gọn.
+// Không có dấu "-" thì hiện nguyên mã.
+function shortOrderCode(code) {
+  const s = String(code ?? "");
+  const i = s.lastIndexOf("-");
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
 export default function App() {
   const [orders, setOrders] = useState([]);
   const [connected, setConnected] = useState(false);
@@ -522,11 +530,11 @@ export default function App() {
     } catch {}
   }
 
-  // Style grid: cột custom qua inline. Mỗi card có rộng tối thiểu
-  // (minmax) — hết chỗ thì cuộn ngang, không bóp méo nội dung.
+  // Style grid: cột custom qua inline. Dùng minmax(0,1fr) để luôn co vừa
+  // màn hình (kể cả điện thoại 2-3 cột), nội dung trong card tự gọn lại.
   const gridStyle =
     cardSize === "custom"
-      ? { gridTemplateColumns: "repeat(" + Math.min(8, Math.max(1, customCols)) + ", minmax(230px, 1fr))" }
+      ? { gridTemplateColumns: "repeat(" + Math.min(8, Math.max(1, customCols)) + ", minmax(0, 1fr))" }
       : {};
   const gridClass = "kds-grid" + (cardSize === "custom" ? "" : " kds-grid-" + cardSize);
 
@@ -1024,7 +1032,10 @@ export default function App() {
                     📌
                   </button>
                   <span className="seq">{padSeq(o.sequenceNumber)}</span>
-                  <span className="code">{o.orderCode}</span>
+                  <span className="code" title={o.orderCode}>
+                    <span className="code-full">{o.orderCode}</span>
+                    <span className="code-short">{shortOrderCode(o.orderCode)}</span>
+                  </span>
                 </div>
                 <div className="kds-card-right">
                   <span className="time">{fmtTime(o.receivedAt)}</span>
