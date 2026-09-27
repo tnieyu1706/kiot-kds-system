@@ -24,6 +24,17 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 .kds-chips { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
 .kds-chip { display: inline-flex; align-items: center; gap: 6px; background: #dbeafe; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px; font-weight: 600; }
 .kds-chip-x { border: none; background: #fff; border-radius: 999px; width: 20px; height: 20px; cursor: pointer; line-height: 1; }
+/* Tay cầm kéo-thả đổi thứ tự quy tắc viết tắt (Pointer Events: chuột + cảm ứng).
+   touch-action:none để ngón tay kéo từ tay cầm không bị cuộn trang. */
+.kds-drag { cursor: grab; opacity: .55; font-size: 16px; padding: 4px 8px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+.kds-drag:active { cursor: grabbing; }
+/* Chip đang được kéo theo tay + vị trí sẽ thả vào */
+.kds-chip-dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(0,0,0,.25); opacity: .95; }
+.kds-chip-drop { outline: 2px dashed #f59e0b; outline-offset: -2px; }
+/* Danh sách viết tắt: mỗi quy tắc 1 dòng cho dễ quan sát và sắp xếp */
+.kds-chips-col { flex-direction: column; align-items: stretch; }
+.kds-chips-col .kds-chip { width: 100%; }
+.kds-abbr-text { flex: 1; text-align: left; overflow-wrap: anywhere; }
 .kds-stats { display: grid; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .kds-stat-cell { text-align: left; }
 

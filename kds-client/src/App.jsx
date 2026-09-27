@@ -151,6 +151,75 @@ export default function App() {
   function removeAbbr(idx) {
     persistAbbr(abbrList.filter((_, i) => i !== idx));
   }
+  // Đổi thứ tự quy tắc viết tắt (quy tắc ở TRÊN được ưu tiên khớp trước).
+  // Kéo tay cầm ☰ bằng Pointer Events nên chạy chung cả chuột lẫn cảm ứng
+  // (HTML5 draggable cũ chỉ nhận chuột). Trong lúc kéo không reorder state,
+  // chỉ đẩy chip theo tay + viền đứt ở vị trí sẽ thả; thả ra mới chốt 1 lần.
+  const abbrItemRefs = useRef([]);
+  const abbrDrag = useRef(null);
+  function abbrSnapshot() {
+    return abbrItemRefs.current.map((el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: r.top, height: r.height };
+    });
+  }
+  function abbrTargetFromY(rects, fromIdx, y) {
+    let pos = 0;
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r) continue;
+      if (y > r.top + r.height / 2) pos = i + 1;
+      else break;
+    }
+    return pos > fromIdx ? pos - 1 : pos;
+  }
+  function clearAbbrDragVisual() {
+    abbrItemRefs.current.forEach((el) => {
+      if (!el) return;
+      el.style.transform = "";
+      el.classList.remove("kds-chip-dragging", "kds-chip-drop");
+    });
+  }
+  function onAbbrHandleDown(e, idx) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    abbrDrag.current = { idx, startY: e.clientY, moved: false, target: idx, rects: abbrSnapshot() };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+  function onAbbrHandleMove(e, idx) {
+    const t = abbrDrag.current;
+    if (!t || t.idx !== idx) return;
+    const dy = e.clientY - t.startY;
+    if (!t.moved && Math.abs(dy) < 6) return; // ngưỡng: dưới 6px coi như chạm thường
+    const el = abbrItemRefs.current[t.idx];
+    if (!t.moved) {
+      t.moved = true;
+      if (el) el.classList.add("kds-chip-dragging");
+    }
+    if (el) el.style.transform = `translateY(${dy}px)`;
+    const target = abbrTargetFromY(t.rects, t.idx, e.clientY);
+    if (target !== t.target) {
+      t.target = target;
+      abbrItemRefs.current.forEach((n, i) => {
+        if (n) n.classList.toggle("kds-chip-drop", i === target && target !== t.idx);
+      });
+    }
+  }
+  function onAbbrHandleUp(e, idx) {
+    const t = abbrDrag.current;
+    abbrDrag.current = null;
+    if (!t || t.idx !== idx) { clearAbbrDragVisual(); return; }
+    const { target, moved, idx: from } = t;
+    clearAbbrDragVisual();
+    if (moved && target !== from) moveAbbr(from, target);
+  }
+  function moveAbbr(from, to) {
+    if (from === to || to < 0 || to >= abbrList.length) return;
+    const next = abbrList.slice();
+    const [m] = next.splice(from, 1);
+    next.splice(to, 0, m);
+    persistAbbr(next);
+  }
   function matchAbbr(name) {
     const original = name || "";
     const lower = original.toLowerCase();
@@ -879,10 +948,25 @@ export default function App() {
                   Xóa hết
                 </button>
               )}
-              <div className="kds-chips">
+              <div className="kds-chips kds-chips-col">
                 {abbrList.map((e, i) => (
-                  <span className="kds-chip" key={i}>
-                    {e.k} → {e.v}
+                  <span
+                    className="kds-chip"
+                    key={i}
+                    ref={(el) => { abbrItemRefs.current[i] = el; }}
+                  >
+                    <span
+                      className="kds-drag"
+                      title="Nhấn giữ rồi kéo để đổi thứ tự (trên ưu tiên trước)"
+                      onPointerDown={(ev) => onAbbrHandleDown(ev, i)}
+                      onPointerMove={(ev) => onAbbrHandleMove(ev, i)}
+                      onPointerUp={(ev) => onAbbrHandleUp(ev, i)}
+                      onPointerCancel={() => { abbrDrag.current = null; clearAbbrDragVisual(); }}
+                      onContextMenu={(ev) => ev.preventDefault()}
+                    >
+                      ☰
+                    </span>
+                    <span className="kds-abbr-text">{e.k} → {e.v}</span>
                     <button className="kds-chip-x" onClick={() => removeAbbr(i)} title="Xóa">
                       ×
                     </button>
@@ -893,6 +977,8 @@ export default function App() {
                 )}
                 {abbrList.length > 0 && (
                   <span className="kds-settings-hint">
+                    Kéo ☰ để đổi thứ tự — dùng được cả chuột và cảm ứng.
+                    Quy tắc ở trên khớp trước.
                     Key nhiều keyword cách nhau dấu phẩy phải khớp đủ hết mới rút gọn
                   </span>
                 )}
