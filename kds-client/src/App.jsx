@@ -282,23 +282,15 @@ export default function App() {
   // --- Thông báo đơn mới ---
   // Kêu + toast + rung + nháy tiêu đề khi socket báo order:new (đơn THÔ,
   // chưa qua filter include/exclude — bếp cần biết mọi đơn).
-  // Lưu ý trung thực: browser bị thu nhỏ/tắt màn hình trên điện thoại thì
-  // tab nền bị treo, socket ngắt → KHÔNG báo được. Muốn báo nền thật phải
-  // làm Web Push (PWA + HTTPS + VAPID) ở bước sau.
   const [soundOn, setSoundOn] = useState(() => {
     try { return localStorage.getItem("kds-sound") !== "0"; } catch { return true; }
   });
   const [wakeOn, setWakeOn] = useState(() => {
     try { return localStorage.getItem("kds-wake") !== "0"; } catch { return true; }
   });
-  const [notifPerm, setNotifPerm] = useState(() =>
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
   const [toasts, setToasts] = useState([]);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
-  const notifRef = useRef(notifPerm);
-  notifRef.current = notifPerm;
   const seenRef = useRef(new Set());
   const audioRef = useRef(null);
   const wakeRef = useRef(null);
@@ -377,34 +369,6 @@ export default function App() {
     try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch {}
     pushToast(`🔔 ${label} — ${qty} món`);
     flashTitle();
-    try {
-      if (notifRef.current === "granted" && document.hidden) {
-        new Notification(label, {
-          body: `Tổng ${qty} món — bấm để mở bếp`,
-          tag: order.id
-        });
-      }
-    } catch {}
-  }
-  async function enableBrowserNotif() {
-    try {
-      if (typeof Notification === "undefined") {
-        setConfigMsg("Thiết bị này không hỗ trợ Notification");
-        return;
-      }
-      const p = await Notification.requestPermission();
-      setNotifPerm(p);
-      if (p === "granted") {
-        setConfigMsg("Đã bật thông báo hệ thống (chỉ hiện khi tab chạy nền)");
-        try {
-          new Notification("KDS đã bật thông báo", {
-            body: "Đơn mới sẽ báo ngay cả khi tab chạy nền (browser còn mở)."
-          });
-        } catch {}
-      } else {
-        setConfigMsg("Chưa được cấp quyền thông báo");
-      }
-    } catch {}
   }
 
   // Mở khóa audio sau chạm đầu tiên (chính sách autoplay của browser chặn
@@ -793,16 +757,7 @@ export default function App() {
               >
                 {wakeOn ? "📱 Giữ sáng: bật" : "📱 Giữ sáng: tắt"}
               </button>
-              {notifPerm === "granted" ? (
-                <span className="kds-settings-hint">✔️ Đã cho phép thông báo hệ thống</span>
-              ) : (
-                <button className="kds-settings-clear" onClick={enableBrowserNotif}>
-                  Bật thông báo hệ thống
-                </button>
-              )}
               <span className="kds-settings-hint">
-                Thu nhỏ browser / tắt màn hình điện thoại thì tab nền bị treo, socket ngắt → không báo được.
-                Muốn báo nền thật cần Web Push (làm sau).
                 {!("wakeLock" in navigator) && " Máy này không hỗ trợ giữ sáng tự động."}
               </span>
             </section>
