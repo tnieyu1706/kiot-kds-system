@@ -32,9 +32,19 @@ app.use((req, res, next) => {
 const orders = [];
 let nextSequence = 1;
 
+function cleanOrderCode(raw) {
+  // Defense-in-depth: extension đã lọc, server lọc lại cho chắc.
+  // "AAA-XXXX MMMMMM..." -> "AAA-XXXX", "9128" giữ nguyên.
+  const s = (raw || "").toString().trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  const m = s.match(/([A-Za-z0-9]+-[A-Za-z0-9]+)/);
+  if (m) return m[1];
+  return s.split(" ")[0];
+}
+
 function validateOrderPayload(body) {
   if (!body || typeof body !== "object") return { valid: false, error: "Body phải là JSON object" };
-  const orderCode = typeof body.orderCode === "string" ? body.orderCode.trim() : "";
+  const orderCode = cleanOrderCode(typeof body.orderCode === "string" ? body.orderCode : "");
   if (!orderCode) return { valid: false, error: "Thiếu orderCode (string không rỗng)" };
   if (!Array.isArray(body.items) || body.items.length === 0)
     return { valid: false, error: "items phải là mảng không rỗng" };

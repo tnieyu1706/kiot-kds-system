@@ -72,6 +72,43 @@ export default function App() {
     persist(filterList.filter((_, i) => i !== idx));
   }
 
+  // Loại trừ: danh sách key món KHÔNG muốn hiện (dễ thêm/xóa từng key).
+  // Rỗng = không loại gì. Lưu localStorage. Áp dụng SAU filter "chỉ hiện"
+  // nên exclude luôn thắng include — tiện setup: include rộng + exclude hẹp.
+  const [excludeList, setExcludeList] = useState(() => {
+    try {
+      const raw = localStorage.getItem("kds-exclude-list");
+      if (raw) {
+        const v = JSON.parse(raw);
+        if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+  const [excludeDraft, setExcludeDraft] = useState("");
+
+  function persistExclude(list) {
+    setExcludeList(list);
+    try {
+      localStorage.setItem("kds-exclude-list", JSON.stringify(list));
+    } catch {}
+  }
+  function addExclude() {
+    const v = excludeDraft.trim();
+    if (!v) return;
+    if (excludeList.some((k) => k.toLowerCase() === v.toLowerCase())) {
+      setExcludeDraft("");
+      return;
+    }
+    persistExclude([...excludeList, v]);
+    setExcludeDraft("");
+  }
+  function removeExclude(idx) {
+    persistExclude(excludeList.filter((_, i) => i !== idx));
+  }
+
   // Viết tắt tên món: dictionary [{k, v}]. Key là 1 keyword hoặc nhiều
   // keyword cách nhau dấu phẩy (vd "không topping, ớt"). Tên món chứa key
   // (1 keyword) hoặc chứa ĐỦ HẾT các keyword (nhiều keyword, không phân biệt
@@ -173,6 +210,165 @@ export default function App() {
   const [qrOpen, setQrOpen] = useState(false);
   const [configMsg, setConfigMsg] = useState("");
 
+  // --- Thông báo đơn mới ---
+  // Kêu + toast + rung + nháy tiêu đề khi socket báo order:new (đơn THÔ,
+  // chưa qua filter include/exclude — bếp cần biết mọi đơn).
+  // Lưu ý trung thực: browser bị thu nhỏ/tắt màn hình trên điện thoại thì
+  // tab nền bị treo, socket ngắt → KHÔNG báo được. Muốn báo nền thật phải
+  // làm Web Push (PWA + HTTPS + VAPID) ở bước sau.
+  const [soundOn, setSoundOn] = useState(() => {
+    try { return localStorage.getItem("kds-sound") !== "0"; } catch { return true; }
+  });
+  const [wakeOn, setWakeOn] = useState(() => {
+    try { return localStorage.getItem("kds-wake") !== "0"; } catch { return true; }
+  });
+  const [notifPerm, setNotifPerm] = useState(() =>
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
+  const [toasts, setToasts] = useState([]);
+  const soundRef = useRef(soundOn);
+  soundRef.current = soundOn;
+  const notifRef = useRef(notifPerm);
+  notifRef.current = notifPerm;
+  const seenRef = useRef(new Set());
+  const audioRef = useRef(null);
+  const wakeRef = useRef(null);
+  const flashTimer = useRef(null);
+
+  function toggleSound() {
+    const v = !soundOn;
+    setSoundOn(v);
+    try { localStorage.setItem("kds-sound", v ? "1" : "0"); } catch {}
+    if (v) playAlert(); // thử kêu ngay để kiểm tra
+  }
+  function toggleWake() {
+    const v = !wakeOn;
+    setWakeOn(v);
+    try { localStorage.setItem("kds-wake", v ? "1" : "0"); } catch {}
+  }
+
+  function ensureAudio() {
+    try {
+      if (!audioRef.current) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audioRef.current = new AC();
+      }
+      if (audioRef.current.state === "suspended") audioRef.current.resume();
+      return audioRef.current;
+    } catch { return null; }
+  }
+  function playAlert() {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    try {
+      // 2 nhịp ting-tong: cao trước, trầm sau
+      const notes = [
+        { t: 0, f: 988 },   // ting (B5)
+        { t: 0.35, f: 659 } // tong (E5)
+      ];
+      const now = ctx.currentTime;
+      notes.forEach(({ t, f }) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.001, now + t);
+        g.gain.exponentialRampToValueAtTime(0.5, now + t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now + t + 0.3);
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(now + t);
+        o.stop(now + t + 0.32);
+      });
+    } catch {}
+  }
+  function pushToast(text) {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev.slice(-2), { id, text }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }
+  function flashTitle() {
+    const orig = "KDS - Bếp";
+    let n = 0;
+    if (flashTimer.current) clearInterval(flashTimer.current);
+    flashTimer.current = setInterval(() => {
+      document.title = n % 2 === 0 ? "🔔 ĐƠN MỚI!" : orig;
+      if (++n >= 6) {
+        clearInterval(flashTimer.current);
+        flashTimer.current = null;
+        document.title = orig;
+      }
+    }, 700);
+  }
+  function notifyOrder(order) {
+    const qty = (order.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
+    const label = `Đơn mới #${order.sequenceNumber ?? ""} (${order.orderCode ?? ""})`;
+    if (soundRef.current) playAlert();
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch {}
+    pushToast(`🔔 ${label} — ${qty} món`);
+    flashTitle();
+    try {
+      if (notifRef.current === "granted" && document.hidden) {
+        new Notification(label, {
+          body: `Tổng ${qty} món — bấm để mở bếp`,
+          tag: order.id
+        });
+      }
+    } catch {}
+  }
+  async function enableBrowserNotif() {
+    try {
+      if (typeof Notification === "undefined") {
+        setConfigMsg("Thiết bị này không hỗ trợ Notification");
+        return;
+      }
+      const p = await Notification.requestPermission();
+      setNotifPerm(p);
+      if (p === "granted") {
+        setConfigMsg("Đã bật thông báo hệ thống (chỉ hiện khi tab chạy nền)");
+        try {
+          new Notification("KDS đã bật thông báo", {
+            body: "Đơn mới sẽ báo ngay cả khi tab chạy nền (browser còn mở)."
+          });
+        } catch {}
+      } else {
+        setConfigMsg("Chưa được cấp quyền thông báo");
+      }
+    } catch {}
+  }
+
+  // Mở khóa audio sau chạm đầu tiên (chính sách autoplay của browser chặn
+  // tiếng kêu trước khi người dùng tương tác trang lần nào).
+  useEffect(() => {
+    const unlock = () => ensureAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+
+  // Giữ màn hình sáng (Wake Lock) cho máy bếp luôn bật. Mất khi tab ẩn,
+  // xin lại khi mở lên. Browser không hỗ trợ thì bỏ qua êm.
+  async function requestWake() {
+    try {
+      if (!("wakeLock" in navigator)) return;
+      if (document.hidden) return;
+      if (wakeRef.current) return;
+      wakeRef.current = await navigator.wakeLock.request("screen");
+      wakeRef.current.addEventListener?.("release", () => { wakeRef.current = null; });
+    } catch {}
+  }
+  useEffect(() => {
+    if (!wakeOn) {
+      try { wakeRef.current?.release(); } catch {}
+      wakeRef.current = null;
+      return;
+    }
+    requestWake();
+    const onVis = () => { if (!document.hidden) requestWake(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [wakeOn]);
+
   // Xuất / nhập cấu hình chung (filter, viết tắt, cỡ card, đơn kế)
   // để setup nhanh máy mới thay vì nhập tay từng món.
   function exportConfig() {
@@ -181,6 +377,10 @@ export default function App() {
       version: 1,
       exportedAt: new Date().toISOString(),
       filterList,
+      excludeList,
+      soundOn,
+      wakeOn,
+      statsCols,
       abbrList,
       cardSize,
       customCols,
@@ -207,6 +407,9 @@ export default function App() {
         if (Array.isArray(cfg.filterList)) {
           persist(cfg.filterList.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean));
         }
+        if (Array.isArray(cfg.excludeList)) {
+          persistExclude(cfg.excludeList.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean));
+        }
         if (Array.isArray(cfg.abbrList)) {
           persistAbbr(
             cfg.abbrList
@@ -218,6 +421,17 @@ export default function App() {
         if (["small", "medium", "large", "custom"].includes(cfg.cardSize)) changeCardSize(cfg.cardSize);
         if (cfg.customCols !== undefined) changeCustomCols(parseInt(cfg.customCols, 10));
         if (cfg.nextCount !== undefined) changeNextCount(parseInt(cfg.nextCount, 10));
+        if (cfg.soundOn !== undefined) {
+          const v = cfg.soundOn !== false && cfg.soundOn !== "0";
+          setSoundOn(v);
+          try { localStorage.setItem("kds-sound", v ? "1" : "0"); } catch {}
+        }
+        if (cfg.wakeOn !== undefined) {
+          const v = cfg.wakeOn !== false && cfg.wakeOn !== "0";
+          setWakeOn(v);
+          try { localStorage.setItem("kds-wake", v ? "1" : "0"); } catch {}
+        }
+        if (cfg.statsCols !== undefined) changeStatsCols(parseInt(cfg.statsCols, 10));
         setConfigMsg("Nhập cấu hình xong");
       } catch (err) {
         setConfigMsg("Lỗi: " + (err.message || "không đọc được file"));
@@ -258,6 +472,23 @@ export default function App() {
     } catch {}
   }
 
+  // Số cột của bảng thống kê (1-3, mặc định 2 cho gọn). Lưu localStorage.
+  const [statsCols, setStatsCols] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem("kds-stats-cols") || "2", 10);
+      return Math.min(3, Math.max(1, Number.isInteger(v) ? v : 2));
+    } catch {
+      return 2;
+    }
+  });
+  function changeStatsCols(v) {
+    const n = Math.min(3, Math.max(1, Number.isNaN(v) ? 1 : v));
+    setStatsCols(n);
+    try {
+      localStorage.setItem("kds-stats-cols", String(n));
+    } catch {}
+  }
+
   // Style grid: cột custom qua inline. Mỗi card có rộng tối thiểu
   // (minmax) — hết chỗ thì cuộn ngang, không bóp méo nội dung.
   const gridStyle =
@@ -278,7 +509,11 @@ export default function App() {
     // 1. Load danh sách ban đầu (gồm cả completed, client tự lọc khi render)
     fetch(`${SERVER_URL}/api/orders`)
       .then((r) => r.json())
-      .then((data) => setOrders(Array.isArray(data) ? data : data.orders || []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data.orders || [];
+        list.forEach((o) => seenRef.current.add(o.id)); // có sẵn = không kêu
+        setOrders(list);
+      })
       .catch((e) => console.error("GET /api/orders lỗi:", e));
 
     // 2. Kết nối realtime
@@ -286,8 +521,12 @@ export default function App() {
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
 
-    // 3. Đơn mới -> append cuối danh sách
+    // 3. Đơn mới -> kêu + toast, rồi append cuối danh sách
     socket.on("order:new", (order) => {
+      if (!seenRef.current.has(order.id)) {
+        seenRef.current.add(order.id);
+        notifyOrder(order);
+      }
       setOrders((prev) => (prev.some((o) => o.id === order.id) ? prev : [...prev, order]));
     });
 
@@ -321,18 +560,26 @@ export default function App() {
   }
 
   // Đơn completed: ẩn khỏi grid chính, giữ trong state.
-  // + Lọc món trong từng card: chỉ hiện món chứa 1 trong các key
-  // (không phân biệt hoa thường). SL cạnh giờ = tổng SL sau filter.
-  // Đơn không còn món nào sau filter thì ẩn cả card.
+  // + Lọc món trong từng card theo 2 lớp:
+  //   1. include (filterList): rỗng = giữ tất cả, có key = chỉ giữ món chứa key.
+  //   2. exclude (excludeList): loại món chứa key (luôn thắng include).
+  // (không phân biệt hoa thường). SL cạnh giờ = tổng SL sau cả 2 lớp lọc.
+  // Đơn không còn món nào sau lọc thì ẩn cả card.
   const keys = filterList.map((k) => k.toLowerCase());
+  const exKeys = excludeList.map((k) => k.toLowerCase());
   const visible = orders
     .filter((o) => o.status !== "completed")
     .map((o) => {
-      const items = keys.length === 0
+      let items = keys.length === 0
         ? o.items || []
         : (o.items || []).filter((it) =>
             keys.some((k) => (it.name || "").toLowerCase().includes(k))
           );
+      if (exKeys.length > 0) {
+        items = items.filter(
+          (it) => !exKeys.some((k) => (it.name || "").toLowerCase().includes(k))
+        );
+      }
       // Filter theo tên gốc, rồi rút gọn tên để hiển thị
       const displayItems = items.map((it) => ({ ...it, displayName: abbreviate(it.name) }));
       const filteredQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
@@ -421,6 +668,13 @@ export default function App() {
         >
           {pinnedIds.length > 0 ? "Kế (" + pinnedIds.length + ")" : "Kế"}
         </button>
+        <button
+          className="kds-topbtn"
+          onClick={toggleSound}
+          title={soundOn ? "Tắt chuông báo đơn mới" : "Bật chuông báo đơn mới"}
+        >
+          {soundOn ? "🔔" : "🔕"}
+        </button>
         <button className="kds-topbtn" onClick={() => setStatsOpen((v) => !v)} title="Thống kê">
           📊{statsOpen ? " ▾" : ""}
         </button>
@@ -452,6 +706,36 @@ export default function App() {
                 onChange={(e) => changeNextCount(parseInt(e.target.value, 10))}
               />
               <span className="kds-settings-hint">(1-10)</span>
+            </section>
+
+            <section className="kds-settings">
+              <label className="kds-settings-label">🔔 Báo đơn mới:</label>
+              <button
+                className={soundOn ? "btn-next" : "kds-settings-clear"}
+                onClick={toggleSound}
+                title="Kêu ting-tong + toast + rung khi có đơn mới"
+              >
+                {soundOn ? "🔊 Đang bật" : "🔇 Đang tắt"}
+              </button>
+              <button
+                className={wakeOn ? "btn-next" : "kds-settings-clear"}
+                onClick={toggleWake}
+                title="Giữ màn hình luôn sáng cho máy bếp"
+              >
+                {wakeOn ? "📱 Giữ sáng: bật" : "📱 Giữ sáng: tắt"}
+              </button>
+              {notifPerm === "granted" ? (
+                <span className="kds-settings-hint">✔️ Đã cho phép thông báo hệ thống</span>
+              ) : (
+                <button className="kds-settings-clear" onClick={enableBrowserNotif}>
+                  Bật thông báo hệ thống
+                </button>
+              )}
+              <span className="kds-settings-hint">
+                Thu nhỏ browser / tắt màn hình điện thoại thì tab nền bị treo, socket ngắt → không báo được.
+                Muốn báo nền thật cần Web Push (làm sau).
+                {!("wakeLock" in navigator) && " Máy này không hỗ trợ giữ sáng tự động."}
+              </span>
             </section>
 
             <section className="kds-settings">
@@ -489,6 +773,20 @@ export default function App() {
             </section>
 
             <section className="kds-settings">
+              <label className="kds-settings-label">📊 Số cột thống kê:</label>
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  className={statsCols === n ? "btn-next" : "kds-settings-clear"}
+                  onClick={() => changeStatsCols(n)}
+                >
+                  {n} cột
+                </button>
+              ))}
+              <span className="kds-settings-hint">(bảng 📊 trên trang chính)</span>
+            </section>
+
+            <section className="kds-settings">
               <label className="kds-settings-label">🔎 Chỉ hiện món chứa:</label>
               <input
                 className="kds-settings-input"
@@ -518,6 +816,40 @@ export default function App() {
                 ))}
                 {filterList.length === 0 && (
                   <span className="kds-settings-hint">Đang hiện tất cả món</span>
+                )}
+              </div>
+            </section>
+
+            <section className="kds-settings">
+              <label className="kds-settings-label">🚫 Loại trừ món chứa:</label>
+              <input
+                className="kds-settings-input"
+                value={excludeDraft}
+                onChange={(e) => setExcludeDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addExclude();
+                }}
+                placeholder="vd: mang về (Enter để thêm, để trống = không loại gì)"
+              />
+              <button className="kds-settings-clear" onClick={addExclude}>
+                Thêm
+              </button>
+              {excludeList.length > 0 && (
+                <button className="kds-settings-clear" onClick={() => persistExclude([])}>
+                  Xóa hết
+                </button>
+              )}
+              <div className="kds-chips">
+                {excludeList.map((k, i) => (
+                  <span className="kds-chip" key={i}>
+                    {k}
+                    <button className="kds-chip-x" onClick={() => removeExclude(i)} title="Xóa">
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {excludeList.length === 0 && (
+                  <span className="kds-settings-hint">Không loại món nào</span>
                 )}
               </div>
             </section>
@@ -602,17 +934,29 @@ export default function App() {
         </div>
       )}
       {statsOpen && (
-        <section className="kds-stats">
+        <section className="kds-stats" style={{ gridTemplateColumns: "repeat(" + statsCols + ", 1fr)" }}>
           {stats.length === 0 ? (
-            <span className="kds-settings-hint">Không có món nào khớp bảng viết tắt</span>
+            <span className="kds-settings-hint" style={{ gridColumn: "1 / -1" }}>
+              Không có món nào khớp bảng viết tắt
+            </span>
           ) : (
             stats.map((s) => (
-              <div className="kds-item" key={s.name}>
+              <div className="kds-item kds-stat-cell" key={s.name}>
                 • {s.name} - {s.qty}
               </div>
             ))
           )}
         </section>
+      )}
+
+      {toasts.length > 0 && (
+        <div className="kds-toasts">
+          {toasts.map((t) => (
+            <div className="kds-toast" key={t.id}>
+              {t.text}
+            </div>
+          ))}
+        </div>
       )}
 
       {visible.length === 0 ? (

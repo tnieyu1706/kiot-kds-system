@@ -73,6 +73,16 @@ window.KVDebug = () => {
   console.log("[KV-Hook] DEBUG order:", getOrderData());
   return d;
 };
+function cleanOrderCode(raw) {
+  // Thực tế DOM trả "AAA-XXXX MMMMMM..." (mã + tên khách), chỉ lấy "AAA-XXXX".
+  // Vd: "ABC-1234 Nguyen Van A" -> "ABC-1234", "9128" -> "9128".
+  const s = (raw || "").trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  const m = s.match(/([A-Za-z0-9]+-[A-Za-z0-9]+)/);
+  if (m) return m[1];
+  return s.split(" ")[0];
+}
+
 function cleanProductName(raw) {
   // "1. gà nướng" -> "gà nướng" (bo so thu tu + dau cham o dau)
   return (raw || "").trim().replace(/^\d+\s*\.\s*/, "").trim();
@@ -91,8 +101,8 @@ function getOrderData() {
   try {
     const wrap = document.querySelector(".customer-name");
     const a = wrap ? wrap.querySelector("a") : null;
-    orderCode = textOf(a);
-    if (!orderCode) orderCode = textOf(wrap); // fallback: lấy text cả khối
+    orderCode = cleanOrderCode(textOf(a));
+    if (!orderCode) orderCode = cleanOrderCode(textOf(wrap)); // fallback: lấy text cả khối
   } catch {}
 
   // 2) Danh sach mon: .product-cart-list > .product-cart-item

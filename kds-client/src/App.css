@@ -24,7 +24,8 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 .kds-chips { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
 .kds-chip { display: inline-flex; align-items: center; gap: 6px; background: #dbeafe; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px; font-weight: 600; }
 .kds-chip-x { border: none; background: #fff; border-radius: 999px; width: 20px; height: 20px; cursor: pointer; line-height: 1; }
-.kds-stats { display: flex; flex-direction: column; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+.kds-stats { display: grid; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+.kds-stat-cell { text-align: left; }
 
 /* Grid cố định theo cỡ card (chọn trong Thiết lập).
    Mỗi card có rộng tối thiểu — hết chỗ thì cuộn ngang, không bóp méo. */
@@ -79,6 +80,11 @@ body { margin: 0; font-family: system-ui, sans-serif; background: #f3f4f6; }
 
 .btn-next { background: #f59e0b; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
 .btn-next:active { transform: scale(.97); }
+
+/* Toast báo đơn mới: cố định trên cùng, tự mất sau 5s */
+.kds-toasts { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; width: max-content; max-width: calc(100vw - 24px); }
+.kds-toast { background: #16a34a; color: #fff; font-weight: 800; font-size: 16px; padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.35); animation: kds-toast-in .25s ease-out; text-align: center; }
+@keyframes kds-toast-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
 .pin-btn { border: none; background: transparent; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
 .pin-off { opacity: .3; filter: grayscale(1); }
 .pin-on { opacity: 1; }
